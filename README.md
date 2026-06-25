@@ -1,6 +1,0 @@
-# Overview
-
-# Architecture
-
-# AI usage
-

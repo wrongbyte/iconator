@@ -1,25 +1,23 @@
 use axum::response::IntoResponse;
+use iconator::IconatorError;
 use thiserror::Error;
-
 
 #[derive(Error, Debug)]
 pub enum ApplicationError {
-    #[error("Icon not found")]
-    IconNotFound,
-    #[error("Validation error: {0}")]
-    ValidationError(String),
-    // #[error("Internal server error: {0}")]
-    // InternalServerError(String),
+    #[error("Icon not found for path {0}")]
+    IconNotFound(String),
+    #[error("{0}")]
+    PathError(IconatorError),
+    #[error("Internal error")]
+    InternalError,
 }
 
 impl ApplicationError {
     pub fn status_code(&self) -> axum::http::StatusCode {
         match self {
-            ApplicationError::IconNotFound => axum::http::StatusCode::NOT_FOUND,
-            ApplicationError::ValidationError(_) => axum::http::StatusCode::BAD_REQUEST,
-            // ApplicationError::InternalServerError(_) => {
-            //     axum::http::StatusCode::INTERNAL_SERVER_ERROR
-            // }
+            ApplicationError::IconNotFound(_) => axum::http::StatusCode::NOT_FOUND,
+            ApplicationError::PathError(_) => axum::http::StatusCode::BAD_REQUEST,
+            ApplicationError::InternalError => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

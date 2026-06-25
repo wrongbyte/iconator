@@ -1,6 +1,8 @@
+use anyhow::Result;
 use fst::Map;
 use lazy_static::lazy_static;
 use std::{os::unix::ffi::OsStrExt, path::Path};
+use thiserror::Error;
 
 lazy_static! {
     static ref FILENAME_ICONS: Map<&'static [u8]> = {
@@ -27,47 +29,73 @@ lazy_static! {
     };
 }
 
-pub fn get_icon_for_file(path: impl AsRef<Path>) -> Option<u64> {
-    let path = path.as_ref();
-    let basename = path.file_name().unwrap();
-
-    FILENAME_ICONS.get(basename.as_bytes()).or_else(|| {
-        let ext = path.extension().unwrap();
-
-        EXT_ICONS.get(ext.as_bytes())
-    })
+#[derive(Error, Debug, PartialEq)]
+pub enum IconatorError {
+    #[error("invalid path: {0}")]
+    InvalidPath(String),
 }
 
-pub fn get_icon_for_folder(path: impl AsRef<Path>) -> Option<u64> {
+/// Gets the icon for a given path, first checking if the path corresponds
+/// to a known filename (.babelrc.json, .gitignore, etc), then checking if the path corresponds to a known extension.
+/// Returns None if no icon is found.
+pub fn get_icon_for_file(path: impl AsRef<Path>) -> Result<Option<u64>, IconatorError> {
     let path = path.as_ref();
-    let basename = path.file_name().unwrap();
+    let basename = path
+        .file_name()
+        .ok_or_else(|| IconatorError::InvalidPath(path.to_string_lossy().into_owned()))?;
 
-    FOLDER_ICONS.get(basename.as_bytes())
+    if let Some(icon) = FILENAME_ICONS.get(basename.as_bytes()) {
+        return Ok(Some(icon));
+    }
+
+    let ext = path
+        .extension()
+        .ok_or_else(|| IconatorError::InvalidPath("path does not have an extension".to_string()))?;
+
+    Ok(EXT_ICONS.get(ext.as_bytes()))
 }
 
+/// Gets the icon for a given folder name checking if its path corresponds
+/// to a known folder name.
+/// Returns None if no icon is found.
+pub fn get_icon_for_folder(path: impl AsRef<Path>) -> Result<Option<u64>, IconatorError> {
+    let path = path.as_ref();
+    let basename = path
+        .file_name()
+        .ok_or_else(|| IconatorError::InvalidPath(path.to_string_lossy().into_owned()))?;
+
+    Ok(FOLDER_ICONS.get(basename.as_bytes()))
+}
+
+// TODO: add tests that are not happy path
 #[cfg(test)]
 mod test {
     use super::*;
 
     #[test]
+    fn my_test() {
+        assert_eq!(get_icon_for_file("dfglkjdf.."), Ok(Some(617)));
+    }
+
+    #[test]
     fn common_languages() {
-        assert_eq!(get_icon_for_file("./test.js"), Some(296));
-        assert_eq!(get_icon_for_file("./test.ts"), Some(633));
-        assert_eq!(get_icon_for_file("./test.jsx"), Some(508));
-        assert_eq!(get_icon_for_file("./test.tsx"), Some(529));
-        assert_eq!(get_icon_for_file("./test.json"), Some(284));
-        assert_eq!(get_icon_for_file("./test.yaml"), Some(708));
-        assert_eq!(get_icon_for_file("./test.yml"), Some(708));
-        assert_eq!(get_icon_for_file("./test.md"), Some(361));
-        assert_eq!(get_icon_for_file("./test.css"), Some(116));
-        assert_eq!(get_icon_for_file("./test.html"), Some(255));
-        assert_eq!(get_icon_for_file("./test.rs"), Some(525));
+        assert_eq!(get_icon_for_file("./test.js"), Ok(Some(296)));
+        assert_eq!(get_icon_for_file("./test.ts"), Ok(Some(633)));
+        assert_eq!(get_icon_for_file("./test.jsx"), Ok(Some(508)));
+        assert_eq!(get_icon_for_file("./test.tsx"), Ok(Some(529)));
+        assert_eq!(get_icon_for_file("./test.json"), Ok(Some(284)));
+        assert_eq!(get_icon_for_file("./test.yaml"), Ok(Some(708)));
+        assert_eq!(get_icon_for_file("./test.yml"), Ok(Some(708)));
+        assert_eq!(get_icon_for_file("./test.md"), Ok(Some(361)));
+        assert_eq!(get_icon_for_file("./test.css"), Ok(Some(116)));
+        assert_eq!(get_icon_for_file("./test.html"), Ok(Some(255)));
+        assert_eq!(get_icon_for_file("./test.rs"), Ok(Some(525)));
     }
 
     #[test]
     fn common_folders() {
-        assert_eq!(get_icon_for_folder("./.github"), Some(862));
-        assert_eq!(get_icon_for_folder("./src"), Some(1054));
-        assert_eq!(get_icon_for_folder("./tests"), Some(1084));
+        assert_eq!(get_icon_for_folder("./.github"), Ok(Some(862)));
+        assert_eq!(get_icon_for_folder("./src"), Ok(Some(1054)));
+        assert_eq!(get_icon_for_folder("./tests"), Ok(Some(1084)));
     }
 }

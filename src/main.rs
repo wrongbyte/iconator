@@ -7,14 +7,14 @@ use axum::{
 use http::header;
 use iconator::{get_icon_for_file, get_icon_for_folder};
 use serde::Deserialize;
-use std::path::Path;
+use tracing::warn;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::error::ApplicationError;
 
 mod error;
 
-// TODO: not sure if we need a state
+// The state is empty for now, but we can add fields later if needed
 #[derive(Debug, Clone)]
 pub struct AppState {}
 
@@ -34,7 +34,7 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .unwrap();
-    tracing::debug!("listening on {}", listener.local_addr().unwrap());
+    tracing::debug!("server listening on {}", listener.local_addr().unwrap());
 
     axum::serve(listener, app)
         .await
@@ -45,45 +45,37 @@ pub fn router() -> Router<AppState> {
     Router::new().route("/icon/", get(get_icon_id))
 }
 
-//  TYPES -------------------------------------------------------------
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
-pub enum FileType {
+pub enum PathType {
     File,
     Folder,
 }
 
 #[derive(Debug, Deserialize)]
 struct IconQuery {
-    pub r#type: FileType,
+    pub r#type: PathType,
     pub path: String,
 }
 
-//   -------------------------------------------------------------------
 #[tracing::instrument(skip(_state))]
 async fn get_icon_id(
     State(_state): State<AppState>,
     Query(params): Query<IconQuery>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ApplicationError> {
     let IconQuery { r#type, path } = params;
-    let path = Path::new(&path); 
-    println!("path: {:?}, is_file: {}, is_dir: {}", path, path.is_file(), path.is_dir());
-
     let icon_id = match r#type {
-        FileType::File if path.is_file() => get_icon_for_file(path),
-        FileType::Folder if path.is_dir() => get_icon_for_folder(path),
-        _ => {
-            return Err(ApplicationError::ValidationError(
-                format!("invalid target or path: {}", path.display()),
-            ));
-        }
-    }
-    .ok_or(ApplicationError::IconNotFound)?;
+        PathType::File => get_icon_for_file(&path).map_err(|e| ApplicationError::PathError(e)),
+        PathType::Folder => get_icon_for_folder(&path).map_err(|e| ApplicationError::PathError(e)),
+    }?
+    .ok_or(ApplicationError::IconNotFound(path))?;
 
-    let svg_path = std::path::Path::new("/icons").join(format!("{icon_id}.svg"));
-    let svg = tokio::fs::read_to_string(&svg_path)
-        .await
-        .map_err(|_| ApplicationError::IconNotFound)?;
+    let svg_path = std::path::Path::new("icons").join(format!("{icon_id}.svg"));
+
+    let svg = tokio::fs::read_to_string(&svg_path).await.map_err(|e| {
+        warn!("failed to read SVG file {}: {:?}", svg_path.display(), e);
+        ApplicationError::InternalError
+    })?;
 
     Ok(([(header::CONTENT_TYPE, "image/svg+xml")], svg))
 }
