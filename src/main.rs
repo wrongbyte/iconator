@@ -79,3 +79,62 @@ async fn get_icon_id(
 
     Ok(([(header::CONTENT_TYPE, "image/svg+xml")], svg))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::to_bytes;
+    use http::{Request, StatusCode};
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn returns_svg_for_known_file_extension() {
+        let app = router().with_state(AppState {});
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/icon/?type=file&path=test.rs")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get(http::header::CONTENT_TYPE).unwrap(),
+            "image/svg+xml"
+        );
+
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        assert!(std::str::from_utf8(&body).unwrap().contains("<svg"));
+    }
+
+    #[tokio::test]
+    async fn returns_404_for_unknown_file_icon() {
+        let app = router().with_state(AppState {});
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/icon/?type=file&path=dfglkjdf..")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "error": "Icon not found for path dfglkjdf.."
+            })
+        );
+    }
+}
