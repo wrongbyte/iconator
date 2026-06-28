@@ -16,7 +16,7 @@ docker run --rm -p 3000:3000 iconator
  
 ## Design
 To write this web server, I chose Axum because it is simple and fast. It provides extractors to get the data received in the request, as well as a saner way to deal with application state - which is empty here, but can be easily extended on demand.
-Other third-party crates used include `thiserror`, which provides an ergonomic way to declare and use errors, `tracing` for descriptive and OpenTelemetry-compatible logs, and the `TraceLayer` middleware from `tower-http` for logging request information.
+Other third-party crates used include `thiserror`, which provides an ergonomic way to declare and use errors, `tracing` for structured logs, and the `TraceLayer` middleware from `tower-http` for logging request information.
  
 For larger projects, a more robust module structure can be used; however, I chose to keep it simple for now and declare the route functions in `main.rs`.
 
