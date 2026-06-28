@@ -7,6 +7,7 @@ use axum::{
 use http::header;
 use iconator::{get_icon_for_file, get_icon_for_folder};
 use serde::Deserialize;
+use tower_http::trace::TraceLayer;
 use tracing::warn;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -31,7 +32,7 @@ async fn main() {
 
     let app = router().with_state(AppState {});
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
         .await
         .unwrap();
     tracing::debug!("server listening on {}", listener.local_addr().unwrap());
@@ -42,7 +43,9 @@ async fn main() {
 }
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/icon/", get(get_icon_id))
+    Router::new()
+        .route("/icon/", get(get_icon_id))
+        .layer(TraceLayer::new_for_http())
 }
 
 #[derive(Debug, Deserialize, PartialEq)]

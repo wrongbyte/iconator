@@ -64,14 +64,13 @@ pub fn get_icon_for_folder(path: impl AsRef<Path>) -> Result<Option<u64>, Iconat
     Ok(FOLDER_ICONS.get(basename.as_bytes()))
 }
 
-// TODO: add tests that are not happy path
 #[cfg(test)]
 mod test {
     use super::*;
 
     #[test]
-    fn my_test() {
-        assert_eq!(get_icon_for_file("dfglkjdf.."), Ok(Some(617)));
+    fn unknown_file_icon() {
+        assert_eq!(get_icon_for_file("dfglkjdf.."), Ok(None));
     }
 
     #[test]
@@ -87,6 +86,19 @@ mod test {
         assert_eq!(get_icon_for_file("./test.css"), Ok(Some(116)));
         assert_eq!(get_icon_for_file("./test.html"), Ok(Some(255)));
         assert_eq!(get_icon_for_file("./test.rs"), Ok(Some(525)));
+    }
+
+    #[test]
+    fn path_errors() {
+        assert_eq!(get_icon_for_file("foo.txt/.."), Err(IconatorError::InvalidPath));
+        assert_eq!(get_icon_for_file("."), Err(IconatorError::InvalidPath));
+        assert_eq!(get_icon_for_file("/"), Err(IconatorError::InvalidPath));
+        assert_eq!(get_icon_for_file("./test"), Err(IconatorError::MissingExtension));
+        assert_eq!(get_icon_for_file("README"), Err(IconatorError::MissingExtension));
+
+        assert_eq!(get_icon_for_folder("foo.txt/.."), Err(IconatorError::InvalidPath));
+        assert_eq!(get_icon_for_folder("."), Err(IconatorError::InvalidPath));
+        assert_eq!(get_icon_for_folder("/"), Err(IconatorError::InvalidPath));
     }
 
     #[test]
