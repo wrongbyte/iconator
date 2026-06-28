@@ -1,4 +1,3 @@
-use anyhow::Result;
 use fst::Map;
 use lazy_static::lazy_static;
 use std::{os::unix::ffi::OsStrExt, path::Path};
@@ -31,8 +30,10 @@ lazy_static! {
 
 #[derive(Error, Debug, PartialEq)]
 pub enum IconatorError {
-    #[error("invalid path: {0}")]
-    InvalidPath(String),
+    #[error("invalid path")]
+    InvalidPath,
+    #[error("file path does not have an extension")]
+    MissingExtension,
 }
 
 /// Gets the icon for a given path, first checking if the path corresponds
@@ -40,9 +41,7 @@ pub enum IconatorError {
 /// Returns None if no icon is found.
 pub fn get_icon_for_file(path: impl AsRef<Path>) -> Result<Option<u64>, IconatorError> {
     let path = path.as_ref();
-    let basename = path
-        .file_name()
-        .ok_or_else(|| IconatorError::InvalidPath(path.to_string_lossy().into_owned()))?;
+    let basename = path.file_name().ok_or_else(|| IconatorError::InvalidPath)?;
 
     if let Some(icon) = FILENAME_ICONS.get(basename.as_bytes()) {
         return Ok(Some(icon));
@@ -50,7 +49,7 @@ pub fn get_icon_for_file(path: impl AsRef<Path>) -> Result<Option<u64>, Iconator
 
     let ext = path
         .extension()
-        .ok_or_else(|| IconatorError::InvalidPath("path does not have an extension".to_string()))?;
+        .ok_or_else(|| IconatorError::MissingExtension)?;
 
     Ok(EXT_ICONS.get(ext.as_bytes()))
 }
@@ -60,9 +59,7 @@ pub fn get_icon_for_file(path: impl AsRef<Path>) -> Result<Option<u64>, Iconator
 /// Returns None if no icon is found.
 pub fn get_icon_for_folder(path: impl AsRef<Path>) -> Result<Option<u64>, IconatorError> {
     let path = path.as_ref();
-    let basename = path
-        .file_name()
-        .ok_or_else(|| IconatorError::InvalidPath(path.to_string_lossy().into_owned()))?;
+    let basename = path.file_name().ok_or_else(|| IconatorError::InvalidPath)?;
 
     Ok(FOLDER_ICONS.get(basename.as_bytes()))
 }

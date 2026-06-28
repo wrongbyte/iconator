@@ -4,8 +4,8 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ApplicationError {
-    #[error("Icon not found for path {0}")]
-    IconNotFound(String),
+    #[error("Icon not found")]
+    IconNotFound,
     #[error("{0}")]
     PathError(IconatorError),
     #[error("Internal error")]
@@ -15,7 +15,7 @@ pub enum ApplicationError {
 impl ApplicationError {
     pub fn status_code(&self) -> axum::http::StatusCode {
         match self {
-            ApplicationError::IconNotFound(_) => axum::http::StatusCode::NOT_FOUND,
+            ApplicationError::IconNotFound => axum::http::StatusCode::NOT_FOUND,
             ApplicationError::PathError(_) => axum::http::StatusCode::BAD_REQUEST,
             ApplicationError::InternalError => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
         }

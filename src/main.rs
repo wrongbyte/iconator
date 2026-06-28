@@ -68,7 +68,7 @@ async fn get_icon_id(
         PathType::File => get_icon_for_file(&path).map_err(|e| ApplicationError::PathError(e)),
         PathType::Folder => get_icon_for_folder(&path).map_err(|e| ApplicationError::PathError(e)),
     }?
-    .ok_or(ApplicationError::IconNotFound(path))?;
+    .ok_or(ApplicationError::IconNotFound)?;
 
     let svg_path = std::path::Path::new("icons").join(format!("{icon_id}.svg"));
 
@@ -133,7 +133,7 @@ mod tests {
         assert_eq!(
             json,
             serde_json::json!({
-                "error": "Icon not found for path dfglkjdf.."
+                "error": "Icon not found"
             })
         );
     }
